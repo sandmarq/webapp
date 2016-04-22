@@ -1,3 +1,4 @@
+import json
 import random
 import time
 
@@ -20,7 +21,6 @@ def index():
     # Render index.html template.
     return render_template('index.html', switch=switch)
 
-
 # LED route allows changing the LED state with a POST request.
 @app.route("/led/<int:state>", methods=['POST'])
 def led(state):
@@ -33,16 +33,22 @@ def led(state):
         return ('Unknown LED state', 400)
     return ('', 204)
 
-
-# Server-sent event endpoint that streams the switch state every second.
-@app.route("/switch")
-def switch():
-    def read_switch():
+# Server-sent event endpoint that streams the thing state every second.
+@app.route('/thing')
+def thing():
+    def get_thing_values():
         while True:
-            switch = pi_thing.read_switch()
-            yield 'data: {0}\n\n'.format(switch)
+            # Build up a dict of the current thing state.
+            thing_state = {
+                'switch': pi_thing.read_switch(),
+                'temperature': pi_thing.get_temperature(),
+                'humidity': pi_thing.get_humidity()
+            }
+            # Send the thing state as a JSON object.
+            yield('data: {0}\n\n'.format(json.dumps(thing_state)))
+            # Wait a second and repeat.
             time.sleep(1.0)
-    return Response(read_switch(), mimetype='text/event-stream')
+    return Response(get_thing_values(), mimetype='text/event-stream')
 
 
 # Start the flask debug server listening on the pi port 5000 by default.
